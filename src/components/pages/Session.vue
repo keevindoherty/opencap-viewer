@@ -233,10 +233,49 @@
                       {{ isMonocularSession ? 'New session same camera' : 'New session, same setup' }}
                   </v-btn>
   
-                  <v-btn small class="mt-4 w-100 session-action-btn" v-show="show_controls" :disabled="busy || state !== 'ready'" @click="newSession">
+                  <v-btn small class="mt-4 w-100 session-action-btn" v-show="show_controls" :disabled="busy || state !== 'ready'" @click="openNewSessionConfirm">
                       <v-icon left small>mdi-plus</v-icon>
                       New session
                   </v-btn>
+
+                  <v-dialog
+                      v-model="new_session_confirm_dialog"
+                      content-class="confirm-dialog"
+                      max-width="500"
+                      :fullscreen="$vuetify.breakpoint.smAndDown">
+                      <v-card>
+                          <v-card-text class="pt-4">
+                              <v-row class="m-0">
+                                  <v-col cols="12" sm="2">
+                                      <v-icon x-large color="orange">mdi-alert-circle</v-icon>
+                                  </v-col>
+                                  <v-col cols="12" sm="10">
+                                      <p class="mb-2">
+                                          Starting a new session will require calibration again.
+                                      </p>
+                                      <p class="mb-0">
+                                          To keep the current calibration and recording setup, choose New session, same setup instead.
+                                      </p>
+                                  </v-col>
+                              </v-row>
+                          </v-card-text>
+                          <v-card-actions>
+                              <v-spacer></v-spacer>
+                              <v-btn
+                                  color="blue darken-1"
+                                  text
+                                  @click="new_session_confirm_dialog = false">
+                                  Cancel
+                              </v-btn>
+                              <v-btn
+                                  color="orange darken-1"
+                                  text
+                                  @click="confirmNewSession">
+                                  Continue
+                              </v-btn>
+                          </v-card-actions>
+                      </v-card>
+                  </v-dialog>
   
                   <v-dialog v-model="dialog" content-class="app-dialog" :width="$vuetify.breakpoint.smAndDown ? '100%' : '500'"
                       max-width="500" :fullscreen="$vuetify.breakpoint.smAndDown">
@@ -1053,6 +1092,7 @@
               trial_rename_index: 0,
 
               session_rename_dialog: false,
+              new_session_confirm_dialog: false,
               sessionNewName: '',
 
               trial_modify_tags: false,
@@ -1691,6 +1731,13 @@
       newSession() {
         this.clearAll()
         this.$router.push({name: 'RecordingMode'})
+      },
+      openNewSessionConfirm() {
+        this.new_session_confirm_dialog = true
+      },
+      confirmNewSession() {
+        this.new_session_confirm_dialog = false
+        this.newSession()
       },
       openInApp() {
         if (this.sessionDeepLinkUrl) {
