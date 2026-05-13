@@ -391,6 +391,10 @@
             </v-btn>
         </div><!-- end left-wrapper -->
 
+        <div v-if="participantName" class="participant-context participant-context--viewer">
+            <div class="participant-context__label">Participant</div>
+            <div class="participant-context__name">{{ participantName }}</div>
+        </div>
         <div class="main-content d-flex flex-grow-1">
         <!-- Centered Open in App prompt for monocular mobile sessions -->
         <div v-if="showOpenInAppButton && !trial" class="open-in-app-center d-flex flex-column align-center justify-center">
@@ -1107,6 +1111,13 @@
           const s = this.session;
           if (!s) return 'Session';
           return s.meta?.sessionName || s.sessionName || (s.id ? String(s.id).split('-')[0] : '') || 'Session';
+        },
+        participantName() {
+          const session = this.session
+          if (!session) return ''
+
+          const name = session.subject_name || (session.subject ? session.name : '') || session.meta?.subject?.id || ''
+          return String(name)
         },
         filteredTrialsWithMenu() {
           return this.filteredTrials.map(trial => ({...trial, isMenuOpen: false}));
@@ -2566,6 +2577,46 @@
       flex-direction: row;
       overflow: hidden;
       position: relative;
+    }
+
+    .participant-context {
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 6px;
+      padding: 10px 14px;
+      background-color: rgba(20, 20, 20, 0.78);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+      color: rgba(255, 255, 255, 0.92);
+      pointer-events: none;
+    }
+
+    .participant-context--viewer {
+      position: fixed;
+      top: calc(var(--app-bar-top-offset, 64px) + 12px);
+      left: calc(250px + (100vw - 250px) / 2);
+      transform: translateX(-50%);
+      z-index: 90;
+      max-width: min(420px, calc(100% - 32px));
+      text-align: center;
+
+      @media (max-width: 1279px) {
+        left: 50%;
+      }
+    }
+
+    .participant-context__label {
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 0.72rem;
+      font-weight: 600;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .participant-context__name {
+      margin-top: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
     }
   
     .mobile-menu-toggle {
