@@ -68,6 +68,11 @@
   
             <ValidationObserver tag="div" class="d-flex flex-column" ref="observer" v-slot="{ invalid }">
   
+                <div v-if="participantName" class="participant-context mb-3">
+                  <div class="participant-context__label">Participant</div>
+                  <div class="participant-context__name">{{ participantName }}</div>
+                </div>
+
                 <div class="d-flex align-center flex-wrap mb-2 trial-name-row">
                   <div class="flex-grow-1 min-width-0">
                     <ValidationProvider rules="required|alpha_dash_custom" v-slot="{ errors }" name="Trial name">
@@ -81,7 +86,11 @@
                   <v-btn class="mb-4 w-100" v-show="show_controls && !showOpenInAppButton" :disabled="(busy || invalid) && !(state === 'recording' && n_cameras_connected === 0)" @click="changeState">
                       {{ buttonCaption }}
                   </v-btn>
-                  <p v-if="state === 'recording' && n_cameras_connected >= n_calibrated_cameras">{{ displayDeviceCount }} devices are recording, do not refresh</p>
+                  <p v-if="state === 'recording' && n_cameras_connected >= n_calibrated_cameras">
+                    {{ displayDeviceCount }} devices are recording
+                    <template v-if="sessionFramerate">at {{ sessionFramerate }} Hz</template>,
+                    do not refresh
+                  </p>
                   <p v-if="state === 'processing'">{{ n_videos_uploaded }} of {{ displayDeviceCount }} videos uploaded, do not refresh.</p>
               </ValidationObserver>
 
@@ -391,10 +400,6 @@
             </v-btn>
         </div><!-- end left-wrapper -->
 
-        <div v-if="participantName" class="participant-context participant-context--viewer">
-            <div class="participant-context__label">Participant</div>
-            <div class="participant-context__name">{{ participantName }}</div>
-        </div>
         <div class="main-content d-flex flex-grow-1">
         <!-- Centered Open in App prompt for monocular mobile sessions -->
         <div v-if="showOpenInAppButton && !trial" class="open-in-app-center d-flex flex-column align-center justify-center">
@@ -1116,8 +1121,13 @@
           const session = this.session
           if (!session) return ''
 
-          const name = session.subject_name || (session.subject ? session.name : '') || session.meta?.subject?.id || ''
+          const hasSubject = session.subject || session.meta?.subject?.id
+          const name = session.subject_name || (hasSubject ? session.name : '') || ''
           return String(name)
+        },
+        sessionFramerate() {
+          const framerate = this.session?.meta?.settings?.framerate ?? null;
+          return framerate !== null ? Number(framerate) : null;
         },
         filteredTrialsWithMenu() {
           return this.filteredTrials.map(trial => ({...trial, isMenuOpen: false}));
@@ -2420,16 +2430,18 @@
       recordingTimeLimit() {
         // Default value is 60.
         // Set -1 for no limit.
-        var timelimit = 60
-  
-        // If we know the framerate, we change time limit accordingly.
-        if ('meta' in this.session && 'settings' in this.session.meta && 'framerate' in this.session.meta.settings) {
-          var framerate = this.session.meta.settings.framerate
-          if (framerate == 60 || framerate == 120 || framerate == 240)
-            timelimit = 60 / (framerate / 60)
+        const DEFAULT_TIME_LIMIT = 60;
+        const VALID_FRAMERATES = [60, 120, 240];
+
+        let timelimit = DEFAULT_TIME_LIMIT;
+        const framerate = this.sessionFramerate;
+
+        // Adjust timelimit for valid framerates
+        if (framerate !== null && VALID_FRAMERATES.includes(framerate)) {
+          timelimit = 60 / (framerate / 60);
         }
-  
-        return timelimit
+
+        return timelimit;
       },
       toggleSessionMenuButtons() {
         this.showSessionMenuButtons = !this.showSessionMenuButtons;
@@ -2586,21 +2598,7 @@
       background-color: rgba(20, 20, 20, 0.78);
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
       color: rgba(255, 255, 255, 0.92);
-      pointer-events: none;
-    }
-
-    .participant-context--viewer {
-      position: fixed;
-      top: calc(var(--app-bar-top-offset, 64px) + 12px);
-      left: calc(250px + (100vw - 250px) / 2);
-      transform: translateX(-50%);
-      z-index: 90;
-      max-width: min(420px, calc(100% - 32px));
-      text-align: center;
-
-      @media (max-width: 1279px) {
-        left: 50%;
-      }
+      max-width: 100%;
     }
 
     .participant-context__label {
