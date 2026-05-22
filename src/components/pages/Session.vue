@@ -68,6 +68,11 @@
   
             <ValidationObserver tag="div" class="d-flex flex-column" ref="observer" v-slot="{ invalid }">
   
+                <div v-if="participantName" class="participant-context mb-3">
+                  <div class="participant-context__label">Participant</div>
+                  <div class="participant-context__name">{{ participantName }}</div>
+                </div>
+
                 <div class="d-flex align-center flex-wrap mb-2 trial-name-row">
                   <div class="flex-grow-1 min-width-0">
                     <ValidationProvider rules="required|alpha_dash_custom" v-slot="{ errors }" name="Trial name">
@@ -83,7 +88,7 @@
                   </v-btn>
                   <p v-if="state === 'recording' && n_cameras_connected >= n_calibrated_cameras">
                     {{ displayDeviceCount }} devices are recording
-                    <template v-if="sessionFramerate">at {{ sessionFramerate }} Hz</template>, 
+                    <template v-if="sessionFramerate">at {{ sessionFramerate }} Hz</template>,
                     do not refresh
                   </p>
                   <p v-if="state === 'processing'">{{ n_videos_uploaded }} of {{ displayDeviceCount }} videos uploaded, do not refresh.</p>
@@ -1065,6 +1070,14 @@
           const s = this.session;
           if (!s) return 'Session';
           return s.meta?.sessionName || s.sessionName || (s.id ? String(s.id).split('-')[0] : '') || 'Session';
+        },
+        participantName() {
+          const session = this.session
+          if (!session) return ''
+
+          const hasSubject = session.subject || session.meta?.subject?.id
+          const name = session.subject_name || (hasSubject ? session.name : '') || ''
+          return String(name)
         },
         sessionFramerate() {
           const framerate = this.session?.meta?.settings?.framerate ?? null;
@@ -2380,15 +2393,15 @@
         // Set -1 for no limit.
         const DEFAULT_TIME_LIMIT = 60;
         const VALID_FRAMERATES = [60, 120, 240];
-    
+
         let timelimit = DEFAULT_TIME_LIMIT;
         const framerate = this.sessionFramerate;
-        
+
         // Adjust timelimit for valid framerates
         if (framerate !== null && VALID_FRAMERATES.includes(framerate)) {
           timelimit = 60 / (framerate / 60);
         }
-        
+
         return timelimit;
       },
       toggleSessionMenuButtons() {
@@ -2537,6 +2550,32 @@
       flex-direction: row;
       overflow: hidden;
       position: relative;
+    }
+
+    .participant-context {
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 6px;
+      padding: 10px 14px;
+      background-color: rgba(20, 20, 20, 0.78);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+      color: rgba(255, 255, 255, 0.92);
+      max-width: 100%;
+    }
+
+    .participant-context__label {
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 0.72rem;
+      font-weight: 600;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+
+    .participant-context__name {
+      margin-top: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
     }
   
     .mobile-menu-toggle {
