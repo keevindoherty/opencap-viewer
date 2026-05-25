@@ -1705,6 +1705,25 @@
         store[this.session.id] = true
         this.setSameDeviceSessionStore(store)
       },
+      getAdvancedSettingsMetadataParams(settings = {}) {
+        const params = {}
+        const settingKeys = [
+          { storedKey: 'scalingsetup', paramKey: 'settings_scaling_setup' },
+          { storedKey: 'posemodel', paramKey: 'settings_pose_model' },
+          { storedKey: 'framerate', paramKey: 'settings_framerate' },
+          { storedKey: 'openSimModel', paramKey: 'settings_openSimModel' },
+          { storedKey: 'augmentermodel', paramKey: 'settings_augmenter_model' },
+          { storedKey: 'filterfrequency', paramKey: 'settings_filter_frequency' },
+        ]
+
+        settingKeys.forEach(({ storedKey, paramKey }) => {
+          if (settings[storedKey] !== undefined && settings[storedKey] !== null && settings[storedKey] !== '') {
+            params[paramKey] = settings[storedKey]
+          }
+        })
+
+        return params
+      },
       setPublic(p) {
         console.log(p)
         axios.patch(`/sessions/${this.session.id}/`, {"public": p})
@@ -1734,7 +1753,11 @@
       async newSessionSameSetup() {
         // Snapshot before initSessionSameSetup: new_subject response may omit isMono on the new session.
         const wasMonocular = !!(this.session?.isMono ?? this.session?.is_mono)
+        const advancedSettings = this.getAdvancedSettingsMetadataParams(this.session?.meta?.settings)
         await this.initSessionSameSetup()
+        if (!wasMonocular && Object.keys(advancedSettings).length > 0) {
+          await axios.get(`/sessions/${this.session.id}/set_metadata/`, { params: advancedSettings })
+        }
         const query = wasMonocular ? { isMono: 'true', fromDevice: 'true' } : {}
         this.$router.push({name: 'Neutral', params: {id: this.session.id}, query})
       },
