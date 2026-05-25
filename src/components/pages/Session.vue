@@ -237,10 +237,27 @@
 
             <div v-if="showSessionMenuButtons" class="session-actions-panel">
                   <v-btn small class="w-100 session-action-btn" v-show="show_controls" :disabled="busy || state !== 'ready'"
-                      @click="newSessionSameSetup">
+                      @click="openNewSessionSameSetupConfirm">
                       <v-icon left small>mdi-plus-box-multiple</v-icon>
                       {{ isMonocularSession ? 'New session same camera' : 'New session, same setup' }}
                   </v-btn>
+
+                  <ConfirmDialog
+                      v-model="new_session_same_setup_confirm_dialog"
+                      :fullscreen="$vuetify.breakpoint.smAndDown"
+                      cancel-text="Cancel"
+                      confirm-text="Create session"
+                      confirm-color="green darken-1"
+                      @cancel="new_session_same_setup_confirm_dialog = false"
+                      @confirm="confirmNewSessionSameSetup">
+                      <h3 class="mb-3">New session, same setup</h3>
+                      <p class="mb-2">
+                          Starting a new session will leave this session page.
+                      </p>
+                      <p class="mb-0">
+                          The new session will keep the current calibration, recording setup, and saved advanced settings.
+                      </p>
+                  </ConfirmDialog>
   
                   <v-btn small class="mt-4 w-100 session-action-btn" v-show="show_controls" :disabled="busy || state !== 'ready'" @click="openNewSessionConfirm">
                       <v-icon left small>mdi-plus</v-icon>
@@ -1016,6 +1033,7 @@
 
               session_rename_dialog: false,
               new_session_confirm_dialog: false,
+              new_session_same_setup_confirm_dialog: false,
               sessionNewName: '',
 
               trial_modify_tags: false,
@@ -1673,6 +1691,13 @@
       confirmNewSession() {
         this.new_session_confirm_dialog = false
         this.newSession()
+      },
+      openNewSessionSameSetupConfirm() {
+        this.new_session_same_setup_confirm_dialog = true
+      },
+      confirmNewSessionSameSetup() {
+        this.new_session_same_setup_confirm_dialog = false
+        this.newSessionSameSetup()
       },
       openInApp() {
         if (this.sessionDeepLinkUrl) {
