@@ -525,6 +525,7 @@
                   playsinline 
                   :src="video.media" 
                   crossorigin="anonymous" 
+                  @loadedmetadata="onVideoLoadedMetadata(index)"
                   @ended="onVideoEnded(index)"
                   preload="metadata"
                   class="video-element" />
@@ -2397,8 +2398,13 @@
                 }
 
                 delay(timeout).then(() => {
-                  // The fixed number 5 is here as a warkaround for Safari
-                  if (this.trial?.name !== 'neutral') {
+                  // The fixed number 5 is here as a warkaround for Safari.
+                  // For neutral: start the render loop so meshes appear as OBJ files load,
+                  // but skip vid.play() so videos stay paused at frame 0.
+                  if (this.trial?.name === 'neutral') {
+                    this.playing = true
+                    this.animate()
+                  } else {
                     this.togglePlay(true)
                   }
                 });
@@ -2546,6 +2552,14 @@
           } else {
             this.togglePlay(false)
           }
+        }
+      },
+      onVideoLoadedMetadata(index) {
+        // On Safari, seeking to 0 after metadata loads forces the first frame to paint
+        // even when the video is paused (important for neutral trials).
+        const el = this.videoElement(index)
+        if (el) {
+          el.currentTime = 0
         }
       },
       videoElement(index) {
