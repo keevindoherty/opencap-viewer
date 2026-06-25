@@ -91,7 +91,7 @@
                     <template v-if="sessionFramerate">at {{ sessionFramerate }} Hz</template>,
                     do not refresh
                   </p>
-                  <p v-if="state === 'processing'">{{ n_videos_uploaded }} of {{ displayDeviceCount }} videos uploaded, do not refresh.</p>
+                  <p v-if="state === 'processing'">{{ processingProgressText }}</p>
               </ValidationObserver>
 
               <div class="show-removed-trials-sidebar mb-2">
@@ -1219,6 +1219,41 @@
         displayDeviceCount() {
           return Math.max(this.n_cameras_connected, this.n_videos_uploaded, 1)
         },
+        isSaveLocalPage() {
+          const value = Array.isArray(this.$route.query.save_local)
+            ? this.$route.query.save_local[this.$route.query.save_local.length - 1]
+            : this.$route.query.save_local
+
+          if (value === true || value === '') return true
+          if (value == null || value === false) return false
+
+          return ['true', '1', 'yes', 'on'].includes(String(value).toLowerCase())
+        },
+        savedLocallyProgressText() {
+          const savedLabel = `${this.n_videos_uploaded} saved locally`
+          if (this.isMonocularSession) {
+            return `${savedLabel}, do not refresh.`
+          }
+
+          const calibratedLabel = `${this.n_calibrated_cameras} camera${this.n_calibrated_cameras === 1 ? '' : 's'} calibrated`
+          return `${calibratedLabel}, ${savedLabel}, do not refresh.`
+        },
+        uploadedProgressText() {
+          return `${this.n_videos_uploaded} of ${this.displayDeviceCount} videos uploaded, do not refresh.`
+        },
+        processingProgressText() {
+          return this.isSaveLocalPage
+            ? this.savedLocallyProgressText
+            : this.uploadedProgressText
+        },
+        transferProgressDescription() {
+          if (this.isSaveLocalPage) {
+            return `${this.n_videos_uploaded} saved locally`
+          }
+
+          const videoText = this.n_videos_uploaded === 1 ? 'video was' : 'videos were'
+          return `${this.n_videos_uploaded} ${videoText} uploaded`
+        },
         mobileVideoSizeLabel() {
           return ['S', 'M', 'L'][this.mobileVideoSizeIndex] || 'S'
         },
@@ -1863,7 +1898,7 @@
                   this.showExtraCameraWarning()
                 } else {
                   const num_missing_cameras = this.n_calibrated_cameras - this.n_videos_uploaded
-                  apiErrorRes(res.data, this.n_calibrated_cameras + " devices expected and " + this.n_videos_uploaded + " videos were uploaded. Please reconnect the missing " + num_missing_cameras + " devices to the session using the QR code at the top of the screen.");
+                  apiErrorRes(res.data, this.n_calibrated_cameras + " devices expected and " + this.transferProgressDescription + ". Please reconnect the missing " + num_missing_cameras + " devices to the session using the QR code at the top of the screen.");
                 }
               }
             }
