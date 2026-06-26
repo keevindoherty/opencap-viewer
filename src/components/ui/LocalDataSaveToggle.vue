@@ -186,6 +186,11 @@ export default {
     this.loadPreference()
   },
   methods: {
+    parseSaveLocal (value) {
+      if (value === true || value === '') return true
+      if (value === false || value == null) return false
+      return ['true', '1', 'yes', 'on'].includes(String(value).toLowerCase())
+    },
     async loadPreference () {
       const sessionId = this.session?.id
       const currentRequestId = this.preferenceRequestId + 1
@@ -203,7 +208,7 @@ export default {
         const res = await axios.get(`/sessions/${sessionId}/save_local/`)
         if (this.preferenceRequestId !== currentRequestId) return
 
-        const saveLocal = Boolean(res.data.save_local)
+        const saveLocal = this.parseSaveLocal(res.data.save_local)
         this.saveDataLocally = saveLocal
         this.lastSavedValue = saveLocal
       } catch (error) {
@@ -221,11 +226,17 @@ export default {
     },
     getSessionPreference () {
       if (!this.session) return null
+      if (typeof this.session.save_local !== 'undefined') {
+        return this.parseSaveLocal(this.session.save_local)
+      }
+      if (typeof this.session.saveLocal !== 'undefined') {
+        return this.parseSaveLocal(this.session.saveLocal)
+      }
       if (typeof this.session.save_data_locally !== 'undefined') {
-        return Boolean(this.session.save_data_locally)
+        return this.parseSaveLocal(this.session.save_data_locally)
       }
       if (typeof this.session.saveDataLocally !== 'undefined') {
-        return Boolean(this.session.saveDataLocally)
+        return this.parseSaveLocal(this.session.saveDataLocally)
       }
 
       return null
@@ -308,10 +319,11 @@ export default {
 
       this.$emit('change', {
         sessionId: this.session?.id,
-        saveDataLocally: Boolean(res.data.save_local)
+        saveLocal: this.parseSaveLocal(res.data.save_local),
+        saveDataLocally: this.parseSaveLocal(res.data.save_local)
       })
 
-      return Boolean(res.data.save_local)
+      return this.parseSaveLocal(res.data.save_local)
     }
   }
 }

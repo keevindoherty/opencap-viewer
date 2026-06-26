@@ -1220,17 +1220,17 @@
           return Math.max(this.n_cameras_connected, this.n_videos_uploaded, 1)
         },
         isSaveLocalPage() {
-          const value = Array.isArray(this.$route.query.save_local)
-            ? this.$route.query.save_local[this.$route.query.save_local.length - 1]
-            : this.$route.query.save_local
+          const isTruthySaveLocal = raw => {
+            if (raw === true || raw === '') return true
+            if (raw === false || raw == null) return false
+            return ['true', '1', 'yes', 'on'].includes(String(raw).toLowerCase())
+          }
 
-          if (value === true || value === '') return true
-          if (value == null || value === false) return false
-
-          return ['true', '1', 'yes', 'on'].includes(String(value).toLowerCase())
+          return isTruthySaveLocal(this.session?.save_local ?? this.session?.saveLocal)
         },
         savedLocallyProgressText() {
-          const savedLabel = `${this.n_videos_uploaded} saved locally`
+          const videoText = this.n_videos_uploaded === 1 ? 'video' : 'videos'
+          const savedLabel = `${this.n_videos_uploaded} ${videoText} saved locally`
           if (this.isMonocularSession) {
             return `${savedLabel}, do not refresh.`
           }
@@ -1248,7 +1248,8 @@
         },
         transferProgressDescription() {
           if (this.isSaveLocalPage) {
-            return `${this.n_videos_uploaded} saved locally`
+            const videoText = this.n_videos_uploaded === 1 ? 'video was' : 'videos were'
+            return `${this.n_videos_uploaded} ${videoText} saved locally`
           }
 
           const videoText = this.n_videos_uploaded === 1 ? 'video was' : 'videos were'
