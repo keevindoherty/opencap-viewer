@@ -31,6 +31,10 @@
       <v-spacer class="navbar-spacer"></v-spacer>
 
       <div class="navbar-actions d-flex align-center">
+        <LocalDataSaveToggle
+          v-if="showSessionNavbarControls"
+          class="navbar-local-save"
+          @change="onLocalDataSaveChange" />
         <QRCodeDialog class="navbar-qr"/>
         <profile-dropdown v-if="showProfileInNavbar" class="navbar-profile"></profile-dropdown>
       </div>
@@ -44,15 +48,18 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex'
+import { mapActions, mapMutations, mapState } from 'vuex'
 import { notificationState, hideNotification, clearNotifications } from '@/util/notificationStore.js'
 import { resetPageScroll, resetPageScrollDeferred } from '@/util/scrollUtils.js'
+import { canShowLocalDataSaveToggle } from '@/util/staffAccess.js'
 import QRCodeDialog from './components/ui/QRCodeDialog.vue'
+import LocalDataSaveToggle from './components/ui/LocalDataSaveToggle.vue'
 import ProfileDropdown from './components/ui/ProfileDropDown.vue';
 
 export default {
   name: 'App',
   components: {
+    LocalDataSaveToggle,
     QRCodeDialog,
     'profile-dropdown': ProfileDropdown},
   data () {
@@ -73,6 +80,10 @@ export default {
   },
   methods: {
     ...mapActions('auth', ['logout']),
+    ...mapMutations('data', ['setSessionSaveLocal']),
+    onLocalDataSaveChange ({ saveLocal, saveDataLocally }) {
+      this.setSessionSaveLocal(saveLocal ?? saveDataLocally)
+    },
     startTimer () {
       this.logoutTimer = window.setTimeout(this.logoutTimerHandler, this.sessionTime)
     },
@@ -101,11 +112,16 @@ export default {
   computed: {
     ...mapState({
       verified: state => state.auth.verified,
-      sessionTime: state => state.auth.sessionTime
+      sessionTime: state => state.auth.sessionTime,
+      username: state => state.auth.username
     }),
     showProfileInNavbar () {
       const authRouteNames = ['Login', 'Register', 'Verify', 'ResetPassword', 'NewPassword']
       return this.verified && !authRouteNames.includes(this.$route.name)
+    },
+    showSessionNavbarControls () {
+      return this.$route.name === 'Session' &&
+        canShowLocalDataSaveToggle({ username: this.username })
     },
     appStyle () {
       return {
@@ -196,6 +212,10 @@ export default {
   @media (max-width: 599px) {
     min-width: auto;
   }
+}
+
+.navbar-local-save {
+  flex-shrink: 0;
 }
 
 .navbar-profile {

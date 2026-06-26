@@ -104,6 +104,9 @@ export default {
     setSessionId (state, id) {
       state.session.id = id
     },
+    setSessionSaveLocal (state, saveLocal) {
+      Vue.set(state.session, 'save_local', saveLocal)
+    },
     setExistingSessions (state, sessions) {
 
       // Dates to human readable format.
