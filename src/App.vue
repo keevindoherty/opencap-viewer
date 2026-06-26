@@ -33,7 +33,8 @@
       <div class="navbar-actions d-flex align-center">
         <LocalDataSaveToggle
           v-if="showSessionNavbarControls"
-          class="navbar-local-save" />
+          class="navbar-local-save"
+          @change="onLocalDataSaveChange" />
         <QRCodeDialog class="navbar-qr"/>
         <profile-dropdown v-if="showProfileInNavbar" class="navbar-profile"></profile-dropdown>
       </div>
@@ -47,7 +48,7 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex'
+import { mapActions, mapMutations, mapState } from 'vuex'
 import { notificationState, hideNotification, clearNotifications } from '@/util/notificationStore.js'
 import { resetPageScroll, resetPageScrollDeferred } from '@/util/scrollUtils.js'
 import QRCodeDialog from './components/ui/QRCodeDialog.vue'
@@ -78,6 +79,10 @@ export default {
   },
   methods: {
     ...mapActions('auth', ['logout']),
+    ...mapMutations('data', ['setSessionSaveLocal']),
+    onLocalDataSaveChange ({ saveLocal, saveDataLocally }) {
+      this.setSessionSaveLocal(saveLocal ?? saveDataLocally)
+    },
     startTimer () {
       this.logoutTimer = window.setTimeout(this.logoutTimerHandler, this.sessionTime)
     },
