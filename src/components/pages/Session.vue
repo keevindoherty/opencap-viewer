@@ -1953,8 +1953,15 @@
               const existingIndex = this.session.trials.findIndex(t => t.id === updatedT.id)
               if (existingIndex < 0) {
                 this.addTrial(updatedT)
-              } else if (this.session.trials[existingIndex].status !== updatedT.status) {
-                this.updateTrial(updatedT)
+              } else {
+                const existing = this.session.trials[existingIndex]
+                const statusChanged = existing.status !== updatedT.status
+                // Videos can flip to saved_local after the status settles (e.g. local
+                // saving on phone), so refresh when that state changes too.
+                const savedLocalChanged = this.isTrialSavedLocally(existing) !== this.isTrialSavedLocally(updatedT)
+                if (statusChanged || savedLocalChanged) {
+                  this.updateTrial(updatedT)
+                }
               }
             })
           } catch (e) {
