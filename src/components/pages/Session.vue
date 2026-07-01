@@ -83,7 +83,7 @@
                   </div>
                 </div>
   
-                  <v-btn class="mb-4 w-100" v-show="show_controls && !showOpenInAppButton" :disabled="lidarCooldownActive || ((busy || invalid) && !(state === 'recording' && n_cameras_connected === 0))" @click="changeState">
+                  <v-btn class="mb-4 w-100" v-show="show_controls && !showOpenInAppButton" :disabled="recordingStopCooldownActive || lidarCooldownActive || ((busy || invalid) && !(state === 'recording' && n_cameras_connected === 0))" @click="changeState">
                       {{ buttonCaption }}
                   </v-btn>
                   <p v-if="lidarCooldownActive" class="white--text text-center mb-4 px-2">
@@ -952,6 +952,7 @@
   import SpeedControl from '@/components/ui/SpeedControl'
   import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
   import { debounce } from 'lodash'
+  import { isTester, loadUserGroups } from '@/util/staffAccess.js'
 
   let openpose_bones = [
     [20, 21],
@@ -1098,6 +1099,7 @@
               controlGestureGuard: null,
 
               sessionNotification: { show: false, text: '', type: 'error' },
+              userGroups: [],
 
               // Performance optimization properties
               lastFrameTime: 0,
@@ -1183,6 +1185,9 @@
         lidarCooldownActive() {
           // Only block starting a new recording, never stopping an ongoing one.
           return this.state === 'ready' && this.lidarCooldownRemaining > 0
+        },
+        recordingStopCooldownActive() {
+          return this.state === 'recording' && this.recordingTimePassed < 2
         },
         buttonCaption() {
           if (this.lidarCooldownActive) {
@@ -1270,6 +1275,9 @@
         },
         isLidarRecordingEnabled() {
           return this.parseTruthy(this.session?.useLidar ?? this.session?.use_lidar)
+        },
+        isTesterUser() {
+          return isTester({ groups: this.userGroups })
         },
         displayLidarDeviceCount() {
           return Math.max(this.n_cameras_using_lidar, 0)
@@ -1365,6 +1373,7 @@
       }
 
       this.loadTrialTags()
+      this.loadUserGroupsForAccess()
 
       // Check if something went wrong with loading session. Usually there was a redirect to Login page.
       if (this.session.id == undefined) {
@@ -1522,6 +1531,13 @@
         'loadSession',
         'initSessionSameSetup',
         'loadAnalysisFunctions', 'loadAnalysisFunctionsPending', 'loadAnalysisFunctionsStates', 'loadTrialTags']),
+      async loadUserGroupsForAccess() {
+        try {
+          this.userGroups = await loadUserGroups()
+        } catch {
+          this.userGroups = []
+        }
+      },
       parseTruthy(raw) {
         if (raw === true || raw === '') return true
         if (raw === false || raw == null) return false
@@ -1590,6 +1606,7 @@
   
             if (await this.$refs.observer.validate()) {
               this.busy = true
+              this.recordingTimePassed = 0
   
               try {
                 // store in vuex
@@ -2791,7 +2808,6 @@
       },
       recordingTimeLimit() {
         // Default value is 60.
-        // Set -1 for no limit.
         const DEFAULT_TIME_LIMIT = 60;
         const VALID_FRAMERATES = [60, 120, 240];
 
@@ -2803,7 +2819,7 @@
           timelimit = 60 / (framerate / 60);
         }
 
-        return timelimit;
+        return this.isTesterUser ? timelimit * 5 : timelimit;
       },
       toggleSessionMenuButtons() {
         this.showSessionMenuButtons = !this.showSessionMenuButtons;
