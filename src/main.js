@@ -72,6 +72,11 @@ axios.defaults.baseURL = process.env.VUE_APP_API_SERVER //"https://api.opencap.a
 // axios.defaults.baseURL = "http://34.219.192.107/"
 // axios.defaults.baseURL = "http://localhost:8000/"
 
+if (process.env.VUE_APP_DEV_MOCK === 'true') {
+  // eslint-disable-next-line global-require
+  require('@/devMock.js').installDevMocks()
+}
+
 store.dispatch('auth/checkToken').then(() => {
   new Vue({
     vuetify,
@@ -80,4 +85,3 @@ store.dispatch('auth/checkToken').then(() => {
     render: h => h(App)
   }).$mount('#app')  
 })
-
