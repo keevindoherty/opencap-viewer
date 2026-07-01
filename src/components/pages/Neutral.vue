@@ -3,7 +3,7 @@
     :step="4"
     column
     :rightButton="rightButtonCaption"
-    :rightDisabled="busy || disabledNextButton"
+    :rightDisabled="rightButtonDisabled"
     :rightSpinner="busy && !imgs"
     @right="isMonocularMode ? skipProcessingToMonocular() : onNext()">
     <template v-slot:left>
@@ -587,6 +587,8 @@ export default {
       useLidar: false,
       savingUseLidar: false,
       lidarMaxFramerate: 60,
+      lidarCooldownNow: Date.now(),
+      lidarCooldownTimer: null,
       userGroups: [],
     };
   },
@@ -598,9 +600,13 @@ export default {
     ...mapState({
       session: state => state.data.session,
       trialId: state => state.data.trialId,
+      lidarSwitchCooldownUntil: state => state.data.lidarSwitchCooldownUntil,
       genders: state => state.data.genders,
       sexes: state => state.data.sexes,
     }),
+    rightButtonDisabled() {
+      return this.busy || this.disabledNextButton || (!this.imgs && this.lidarCooldownActive);
+    },
     showStandardAdvancedSettings() {
       return !this.isMonocularMode;
     },
@@ -635,6 +641,9 @@ export default {
       return this.subjectsMapped;
     },
     rightButtonCaption() {
+      if (!this.imgs && this.lidarCooldownActive) {
+        return `Switching camera... ${this.lidarCooldownRemaining}s`;
+      }
       if (this.isMonocularMode) return "Next";
       return this.imgs
         ? "Confirm"
@@ -643,6 +652,14 @@ export default {
           ? this.buttonCaptions[this.lastPolledStatus]
           : "Record"
         : "Record";
+    },
+    lidarCooldownRemaining() {
+      if (!this.lidarSwitchCooldownUntil) return 0;
+      const msLeft = this.lidarSwitchCooldownUntil - this.lidarCooldownNow;
+      return msLeft > 0 ? Math.ceil(msLeft / 1000) : 0;
+    },
+    lidarCooldownActive() {
+      return this.lidarCooldownRemaining > 0;
     },
     imgCols() {
       let res = [];
@@ -747,7 +764,16 @@ export default {
     }
     this.loadSubjectsList(false)
   },
+  beforeDestroy() {
+    this.stopLidarCooldownTicker()
+  },
   watch: {
+    lidarSwitchCooldownUntil: {
+      immediate: true,
+      handler() {
+        this.startLidarCooldownTicker()
+      }
+    },
     subject (newVal, oldVal) {
       if (newVal === null) {
         this.clearSubjectSearch()
@@ -1176,6 +1202,8 @@ export default {
           query: this.$route.query.fromDevice === 'true' ? { sameDevice: 'true' } : {},
         });
       } else {
+        if (this.lidarCooldownActive) return;
+
         if (this.n_calibrated_cameras < 2) {
           if (this.n_calibrated_cameras < 1)
               apiError("No cameras have been calibrated. Please go back and calibrate your cameras.");
@@ -1361,6 +1389,8 @@ export default {
       this.componentKey += 1;
     },
     async skipProcessingToMonocular() {
+      if (this.lidarCooldownActive) return;
+
       if (!this.validateSessionName()) {
         this.isAllInputsValid();
         return;
@@ -1406,6 +1436,23 @@ export default {
           apiError(error);
           this.busy = false;
         }
+      }
+    },
+    startLidarCooldownTicker() {
+      this.lidarCooldownNow = Date.now()
+      if (this.lidarCooldownTimer) return
+      if (!this.lidarSwitchCooldownUntil || this.lidarSwitchCooldownUntil <= this.lidarCooldownNow) return
+      this.lidarCooldownTimer = window.setInterval(() => {
+        this.lidarCooldownNow = Date.now()
+        if (this.lidarCooldownNow >= this.lidarSwitchCooldownUntil) {
+          this.stopLidarCooldownTicker()
+        }
+      }, 250)
+    },
+    stopLidarCooldownTicker() {
+      if (this.lidarCooldownTimer) {
+        window.clearInterval(this.lidarCooldownTimer)
+        this.lidarCooldownTimer = null
       }
     },
   },
