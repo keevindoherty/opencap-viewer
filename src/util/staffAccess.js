@@ -40,7 +40,7 @@ export function isTester ({ groups = userGroups } = {}) {
 }
 
 export function canShowLocalDataSaveToggle ({ groups } = {}) {
-  return true
+  return isTester({ groups })
 }
 
 export function canShowLidarToggle ({ groups } = {}) {

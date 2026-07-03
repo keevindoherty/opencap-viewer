@@ -320,27 +320,29 @@
                         </v-card-text>
                         </template>
 
-                        <v-card-title class="justify-center data-title">
-                          <span class="mr-2">Save on Phone</span>
-                          <v-tooltip bottom="" max-width="500px">
-                            <template v-slot:activator="{ on }">
-                              <v-icon v-on="on"> mdi-help-circle-outline </v-icon>
-                            </template>
-                            When enabled, recording data will be saved only on the recording phone instead of uploading during recording. Upload the videos from the iOS app later before OpenCap can process the data and show results.
-                          </v-tooltip>
-                        </v-card-title>
-                        <v-card-text class="d-flex flex-column align-center checkbox-wrapper">
-                          <v-switch
-                            :input-value="saveDataLocally"
-                            label="Save recording data on the phone"
-                            color="blue lighten-1"
-                            inset
-                            hide-details
-                            readonly
-                            :disabled="loadingSaveLocal || savingSaveLocal"
-                            @click.native.stop.prevent="toggleSaveLocal"
-                          />
-                        </v-card-text>
+                        <template v-if="canUseSaveLocal">
+                          <v-card-title class="justify-center data-title">
+                            <span class="mr-2">Save on Phone</span>
+                            <v-tooltip bottom="" max-width="500px">
+                              <template v-slot:activator="{ on }">
+                                <v-icon v-on="on"> mdi-help-circle-outline </v-icon>
+                              </template>
+                              When enabled, recording data will be saved only on the recording phone instead of uploading during recording. Upload the videos from the iOS app later before OpenCap can process the data and show results.
+                            </v-tooltip>
+                          </v-card-title>
+                          <v-card-text class="d-flex flex-column align-center checkbox-wrapper">
+                            <v-switch
+                              :input-value="saveDataLocally"
+                              label="Save recording data on the phone"
+                              color="blue lighten-1"
+                              inset
+                              hide-details
+                              readonly
+                              :disabled="loadingSaveLocal || savingSaveLocal"
+                              @click.native.stop.prevent="toggleSaveLocal"
+                            />
+                          </v-card-text>
+                        </template>
 
                         <template v-if="canUseLidar">
                           <v-card-title class="justify-center data-title">
@@ -363,7 +365,7 @@
                                     inset
                                     hide-details
                                     readonly
-                                    :disabled="lidarLockedByFramerate || savingUseLidar"
+                                    :disabled="savingUseLidar"
                                     @click.native.stop.prevent="toggleUseLidar"
                                   />
                                 </div>
@@ -485,7 +487,7 @@ import MainLayout from "@/layout/MainLayout";
 import ExampleImage from "@/components/ui/ExampleImage";
 import DialogComponent from '@/components/ui/SubjectDialog.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
-import { canShowLidarToggle, loadUserGroups } from '@/util/staffAccess.js'
+import { canShowLidarToggle, canShowLocalDataSaveToggle, loadUserGroups } from '@/util/staffAccess.js'
 
 const LIDAR_ENABLE_COOLDOWN_MS = 2000
 const LIDAR_DISABLE_COOLDOWN_MS = 10000
@@ -614,7 +616,7 @@ export default {
       return canShowLidarToggle({ groups: this.userGroups });
     },
     canUseSaveLocal() {
-      return true;
+      return canShowLocalDataSaveToggle({ groups: this.userGroups });
     },
     hasAdvancedSettings() {
       return this.showStandardAdvancedSettings || this.canUseSaveLocal || this.canUseLidar;
@@ -623,7 +625,7 @@ export default {
       return this.showStandardAdvancedSettings;
     },
     lidarFramerateLockReason() {
-      return `LiDAR captures depth data at up to ${this.lidarMaxFramerate}fps, so higher framerates are unavailable while LiDAR is on.`;
+      return `LiDAR can only caputure at ${this.lidarMaxFramerate} fps, turning it on will set your frame rate to ${this.lidarMaxFramerate} fps.`;
     },
     lidarLockedByFramerate() {
       return Number(this.framerate) > this.lidarMaxFramerate;
@@ -898,8 +900,21 @@ export default {
       return undefined
     },
     async toggleUseLidar() {
-      if (this.lidarLockedByFramerate || this.savingUseLidar) return
-      await this.applyUseLidar(!this.useLidar)
+      if (this.savingUseLidar) return
+
+      const nextValue = !this.useLidar
+      const previousFramerate = this.framerate
+
+      if (nextValue && this.lidarLockedByFramerate) {
+        this.framerate = this.lidarMaxFramerate
+        this.updateFrequency()
+      }
+
+      const saved = await this.applyUseLidar(nextValue)
+      if (!saved && nextValue) {
+        this.framerate = previousFramerate
+        this.updateFrequency()
+      }
     },
     async applyUseLidar(nextValue) {
       const previousValue = this.useLidar
@@ -917,10 +932,12 @@ export default {
         this.useLidar = savedValue
         this.setSessionUseLidar(savedValue)
         this.setLidarSwitchCooldownUntil(Date.now() + this.getLidarSwitchCooldownMs(savedValue))
+        return true
       } catch (error) {
         this.useLidar = previousValue
         this.setSessionUseLidar(previousValue)
         apiError('Could not update LiDAR setting. Please try again.')
+        return false
       } finally {
         this.savingUseLidar = false
       }

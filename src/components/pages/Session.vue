@@ -91,7 +91,7 @@
                   </p>
                   <p v-if="state === 'recording' && n_cameras_connected >= n_calibrated_cameras">
                     {{ recordingStatusText }}
-                    <template v-if="sessionFramerate"> at {{ sessionFramerate }} Hz</template><template v-if="isLidarRecordingEnabled">, {{ lidarRecordingStatusText }}</template>,
+                    <template v-if="recordingDisplayFramerate"> at {{ recordingDisplayFramerate }} Hz</template><template v-if="isLidarRecordingEnabled">, {{ lidarRecordingStatusText }}</template>,
                     do not refresh
                   </p>
                   <p v-if="state === 'processing'">{{ processingProgressText }}</p>
@@ -1075,6 +1075,7 @@
               n_cameras_connected: 0,
               n_cameras_using_lidar: 0,
               n_videos_uploaded: 0,
+              recordingFramerate: null,
   
               trial_rename_dialog: false,
               trial_rename_index: 0,
@@ -1159,6 +1160,9 @@
         sessionFramerate() {
           const framerate = this.session?.meta?.settings?.framerate ?? null;
           return framerate !== null ? Number(framerate) : null;
+        },
+        recordingDisplayFramerate() {
+          return this.recordingFramerate ?? this.sessionFramerate
         },
         filteredTrialsWithMenu() {
           return this.filteredTrials.map(trial => ({...trial, isMenuOpen: false}));
@@ -1558,6 +1562,18 @@
         if (typeof data.n_cameras_using_lidar !== 'undefined') {
           this.n_cameras_using_lidar = data.n_cameras_using_lidar
         }
+        const framerate = this.getStatusFramerate(data)
+        if (framerate !== null) {
+          this.recordingFramerate = framerate
+        }
+      },
+      getStatusFramerate(data = {}) {
+        if (typeof data.framerate !== 'undefined' && data.framerate !== null && data.framerate !== '') {
+          const parsed = Number(data.framerate)
+          return Number.isNaN(parsed) ? data.framerate : parsed
+        }
+
+        return null
       },
       mergeReturnedTrials(updatedTrials = []) {
         updatedTrials.forEach(updatedT => {

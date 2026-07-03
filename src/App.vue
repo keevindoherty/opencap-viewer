@@ -55,7 +55,7 @@
 import { mapActions, mapMutations, mapState } from 'vuex'
 import { notificationState, hideNotification, clearNotifications } from '@/util/notificationStore.js'
 import { resetPageScroll, resetPageScrollDeferred } from '@/util/scrollUtils.js'
-import { canShowLidarToggle, loadUserGroups } from '@/util/staffAccess.js'
+import { canShowLidarToggle, canShowLocalDataSaveToggle, loadUserGroups } from '@/util/staffAccess.js'
 import QRCodeDialog from './components/ui/QRCodeDialog.vue'
 import LocalDataSaveToggle from './components/ui/LocalDataSaveToggle.vue'
 import LidarToggle from './components/ui/LidarToggle.vue'
@@ -142,7 +142,8 @@ export default {
       return this.verified && !authRouteNames.includes(this.$route.name)
     },
     showSessionNavbarControls () {
-      return this.$route.name === 'Session'
+      return this.$route.name === 'Session' &&
+        canShowLocalDataSaveToggle({ groups: this.userGroups })
     },
     showLidarNavbarControls () {
       return this.$route.name === 'Session' &&
