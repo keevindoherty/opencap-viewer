@@ -2731,23 +2731,26 @@
 
         if (frameCount > 0) {
           if (hasValidDuration && this.videos.length > 0) {
-            const framerate = frameCount / video.duration
-            const t = video.currentTime
+            if (this.playing) {
+              const t = video.currentTime
 
-            // Skip frames on low performance devices
-            if (this.isLowPerformance && this.frameSkipCounter < this.maxFrameSkip) {
-              this.frameSkipCounter++
-              if (this.renderer && this.scene && this.camera) {
-                this.renderer.render(this.scene, this.camera)
+              // Skip frames on low performance devices
+              if (this.isLowPerformance && this.frameSkipCounter < this.maxFrameSkip) {
+                this.frameSkipCounter++
+                if (this.renderer && this.scene && this.camera) {
+                  this.renderer.render(this.scene, this.camera)
+                }
+                return
               }
-              return
-            }
-            this.frameSkipCounter = 0
+              this.frameSkipCounter = 0
 
-            cframe = Math.round(t * framerate)
-            if (cframe >= frameCount) cframe = frameCount - 1
-            this.frame = cframe
-            this.time = cframe === 0 ? 0 : parseFloat(video.currentTime.toFixed(2))
+              cframe = this.frameIndexAtTime(t)
+              this.frame = cframe
+              this.time = this.formatMotionTime(this.frameTimeAt(cframe))
+            } else {
+              cframe = Math.min(frameCount - 1, Math.max(0, this.frame))
+              this.time = this.formatMotionTime(this.frameTimeAt(cframe))
+            }
           } else if (this.videos.length === 0 && this.playing) {
             cframe = this.frame
             this.frame++
@@ -2756,6 +2759,9 @@
             }
           } else {
             cframe = Math.min(frameCount - 1, Math.max(0, this.frame))
+            if (this.hasFrameTimestamps()) {
+              this.time = this.formatMotionTime(this.frameTimeAt(cframe))
+            }
           }
 
           if (cframe < frameCount) {
@@ -2808,10 +2814,14 @@
       onVideoEnded(index) {
         if (index === 0) {
           if (this.loopPlayback) {
+            const startTime = this.frameTimeAt(0)
+            this.frame = 0
             this.videos.forEach((video, index) => {
               const vid_element = this.videoElement(index)
-              vid_element.currentTime = 0
-              vid_element.play()
+              if (vid_element) {
+                vid_element.currentTime = startTime
+                vid_element.play()
+              }
             })
           } else {
             this.togglePlay(false)
@@ -2819,11 +2829,11 @@
         }
       },
       onVideoLoadedMetadata(index) {
-        // On Safari, seeking to 0 after metadata loads forces the first frame to paint
+        // On Safari, seeking after metadata loads forces the first frame to paint
         // even when the video is paused (important for neutral trials).
         const el = this.videoElement(index)
         if (el) {
-          el.currentTime = 0
+          el.currentTime = this.frameTimeAt(0)
         }
       },
       videoElement(index) {
@@ -2835,6 +2845,60 @@
       },
       vid0() {
         return this.videoElement(0)
+      },
+      hasFrameTimestamps() {
+        return Array.isArray(this.frames) &&
+          this.frames.length > 0 &&
+          typeof this.frames[0] === 'number' &&
+          !Number.isNaN(this.frames[0])
+      },
+      frameTimeAt(index) {
+        const frameCount = this.frames.length
+        if (frameCount === 0) return 0
+
+        const clamped = Math.max(0, Math.min(index, frameCount - 1))
+        if (this.hasFrameTimestamps()) {
+          return this.frames[clamped]
+        }
+
+        const video = this.vid0()
+        if (video && !isNaN(video.duration) && video.duration > 0) {
+          return clamped * video.duration / frameCount
+        }
+        return clamped
+      },
+      frameIndexAtTime(t) {
+        const frameCount = this.frames.length
+        if (frameCount === 0) return 0
+
+        const time = parseFloat(t)
+        if (!Number.isFinite(time)) return 0
+
+        if (this.hasFrameTimestamps()) {
+          const times = this.frames
+          if (time <= times[0]) return 0
+          if (time >= times[frameCount - 1]) return frameCount - 1
+
+          let lo = 0
+          let hi = frameCount - 1
+          while (lo < hi) {
+            const mid = Math.ceil((lo + hi) / 2)
+            if (times[mid] <= time) lo = mid
+            else hi = mid - 1
+          }
+          return lo
+        }
+
+        const video = this.vid0()
+        if (video && !isNaN(video.duration) && video.duration > 0) {
+          const frame = Math.round(time * frameCount / video.duration)
+          return Math.max(0, Math.min(frame, frameCount - 1))
+        }
+        return 0
+      },
+      formatMotionTime(time) {
+        const t = Number(time)
+        return Number.isFinite(t) ? parseFloat(t.toFixed(2)) : 0
       },
       isSelected(trial) {
         return this.trial && this.trial.id === trial.id
@@ -2869,17 +2933,18 @@
         if (!this.frames.length) return
 
         const clampedFrame = Math.max(0, Math.min(frame, this.frames.length - 1))
-        const video = this.vid0()
+        this.frame = clampedFrame
 
+        const video = this.vid0()
         if (video && !isNaN(video.duration) && video.duration > 0) {
-          const step = video.duration / this.frames.length
-          const newPosition = clampedFrame * step
+          const newPosition = this.frameTimeAt(clampedFrame)
 
           this.eachVideo(videoElement => {
             if (videoElement) videoElement.currentTime = newPosition
           })
-        } else {
-          this.frame = clampedFrame
+          this.time = this.formatMotionTime(newPosition)
+        } else if (this.hasFrameTimestamps()) {
+          this.time = this.formatMotionTime(this.frameTimeAt(clampedFrame))
         }
 
         this.animateOneFrame()
@@ -2891,6 +2956,10 @@
         this.eachVideo(videoElement => {
           if (videoElement) videoElement.currentTime = time
         })
+
+        if (!this.playing && this.frames.length > 0) {
+          this.frame = this.frameIndexAtTime(time)
+        }
 
         this.animateOneFrame()
       },
