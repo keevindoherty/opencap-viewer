@@ -2724,44 +2724,42 @@
         }
       },
       animateOneFrame() {
-        let cframe
+        let cframe = 0
+        const frameCount = this.frames.length
+        const video = this.vid0()
+        const hasValidDuration = video && !isNaN(video.duration) && video.duration > 0
 
-        let frames = this.frames.length
-        let duration = 0
-        if (this.vid0()) duration = this.vid0().duration
-        if (this.vid0() && !isNaN(this.vid0().duration)) {
-          let framerate = frames / duration
-
-          if (this.videos.length > 0) {
-            let t = 0
-            if (this.vid0()) t = this.vid0().currentTime;
+        if (frameCount > 0) {
+          if (hasValidDuration && this.videos.length > 0) {
+            const framerate = frameCount / video.duration
+            const t = video.currentTime
 
             // Skip frames on low performance devices
             if (this.isLowPerformance && this.frameSkipCounter < this.maxFrameSkip) {
-              this.frameSkipCounter++;
-              // Still render but skip updates
+              this.frameSkipCounter++
               if (this.renderer && this.scene && this.camera) {
-                this.renderer.render(this.scene, this.camera);
+                this.renderer.render(this.scene, this.camera)
               }
-              return;
+              return
             }
-            this.frameSkipCounter = 0;
+            this.frameSkipCounter = 0
 
-            cframe = (Math.round(t * framerate)) > this.frames.length ? this.frames.length - 1 : (Math.round(t * framerate))
+            cframe = Math.round(t * framerate)
+            if (cframe >= frameCount) cframe = frameCount - 1
             this.frame = cframe
-            if (this.vid0()) this.time = this.frame == 0 ? 0 : parseFloat(this.vid0().currentTime.toFixed(2))
-          } else {
-            cframe = this.frame++
-
-            if (this.frame >= this.frames.length) {
-              this.frame = this.frames.length - 1
-              this.time = this.vid0().duration
+            this.time = cframe === 0 ? 0 : parseFloat(video.currentTime.toFixed(2))
+          } else if (this.videos.length === 0 && this.playing) {
+            cframe = this.frame
+            this.frame++
+            if (this.frame >= frameCount) {
+              this.frame = frameCount - 1
             }
+          } else {
+            cframe = Math.min(frameCount - 1, Math.max(0, this.frame))
           }
 
-          if (cframe < this.frames.length) {
-            // display the frame
-            let json = this.animation_json;
+          if (cframe < frameCount) {
+            const json = this.animation_json
             for (let body in json.bodies) {
               json.bodies[body].attachedGeometries.forEach((geom) => {
                 if (this.meshes[body + geom]) {
@@ -2772,14 +2770,16 @@
                   var euler = new THREE.Euler(
                       json.bodies[body].rotation[cframe][0],
                       json.bodies[body].rotation[cframe][1],
-                      json.bodies[body].rotation[cframe][2]);
+                      json.bodies[body].rotation[cframe][2])
                   this.meshes[body + geom].quaternion.setFromEuler(euler)
                 }
               })
             }
           }
 
-          this.syncVideos()
+          if (hasValidDuration) {
+            this.syncVideos()
+          }
         }
 
         // Always render the 3D scene regardless of video metadata state.
@@ -2850,12 +2850,12 @@
         if (this.playing) {
           this.videos.forEach((video, index) => {
             const vid_element = this.videoElement(index)
-            vid_element.play()
+            if (vid_element) vid_element.play()
           })
         } else {
           this.videos.forEach((video, index) => {
             const vid_element = this.videoElement(index)
-            vid_element.pause()
+            if (vid_element) vid_element.pause()
           })
         }
       },
@@ -2866,20 +2866,32 @@
         this.mobileVideoSizeIndex = (this.mobileVideoSizeIndex + 1) % 3
       },
       onNavigate(frame) {
-        const step = this.vid0().duration / this.frames.length
-        const newPosition = frame * step
-  
-        this.eachVideo(videoElement => {
-          videoElement.currentTime = newPosition
-        })
-  
+        if (!this.frames.length) return
+
+        const clampedFrame = Math.max(0, Math.min(frame, this.frames.length - 1))
+        const video = this.vid0()
+
+        if (video && !isNaN(video.duration) && video.duration > 0) {
+          const step = video.duration / this.frames.length
+          const newPosition = clampedFrame * step
+
+          this.eachVideo(videoElement => {
+            if (videoElement) videoElement.currentTime = newPosition
+          })
+        } else {
+          this.frame = clampedFrame
+        }
+
         this.animateOneFrame()
       },
       onChangeTime(time) {
+        const video = this.vid0()
+        if (!video) return
+
         this.eachVideo(videoElement => {
-          videoElement.currentTime = time
+          if (videoElement) videoElement.currentTime = time
         })
-  
+
         this.animateOneFrame()
       },
       maxVideoDuration() {
