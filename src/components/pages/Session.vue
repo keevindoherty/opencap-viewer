@@ -1104,6 +1104,7 @@
 
               // Performance optimization properties
               lastFrameTime: 0,
+              renderLoopActive: false,
               frameSkipCounter: 0,
               maxFrameSkip: 2,
               materialCache: new Map(),
@@ -2327,6 +2328,15 @@
         }
       },
       disposeScene() {
+        this.stopRenderLoop()
+        if (this.controls) {
+          this.controls.dispose()
+          this.controls = null
+        }
+        if (this.renderer) {
+          this.renderer.dispose()
+          this.renderer = null
+        }
         if (this.scene) {
           this.scene.traverse((object) => {
             if (object.isMesh) {
@@ -2394,6 +2404,7 @@
           this.synced = false
           this.trialLoading = true
           this.sceneReady = false
+          this.stopRenderLoop()
           this.togglePlay(false)
 
           try {
@@ -2639,13 +2650,10 @@
 
                 delay(timeout).then(() => {
                   this.sceneReady = true
-                  // The fixed number 5 is here as a warkaround for Safari.
-                  // For neutral: start the render loop so meshes appear as OBJ files load,
-                  // but skip vid.play() so videos stay paused at frame 0.
-                  if (this.trial?.name === 'neutral') {
-                    this.playing = true
-                    this.animate()
-                  } else {
+                  // Keep the render loop running so OrbitControls work while paused.
+                  this.startRenderLoop()
+                  // For neutral trials, leave videos paused at frame 0.
+                  if (this.trial?.name !== 'neutral') {
                     this.togglePlay(true)
                   }
                 });
@@ -2688,16 +2696,31 @@
           }
         }
       },
+      startRenderLoop() {
+        if (this.renderLoopActive) return
+        this.renderLoopActive = true
+        this.animate()
+      },
+      stopRenderLoop() {
+        this.renderLoopActive = false
+      },
       animate() {
-        // cancel display cycle if loading of new trial started
-        if (this.playing && !this.trialLoading) {
+        if (!this.renderLoopActive || this.trialLoading || !this.renderer) {
+          this.renderLoopActive = false
+          return
+        }
+
+        requestAnimationFrame(this.animate)
+
+        if (this.playing) {
           // Check if enough time has passed for next frame (cap at 60fps)
-          const now = performance.now();
+          const now = performance.now()
           if (now - this.lastFrameTime >= 16) {
-            this.lastFrameTime = now;
-            this.animateOneFrame();
+            this.lastFrameTime = now
+            this.animateOneFrame()
           }
-          requestAnimationFrame(this.animate);
+        } else if (this.scene && this.camera) {
+          this.renderer.render(this.scene, this.camera)
         }
       },
       animateOneFrame() {
@@ -2823,15 +2846,12 @@
       },
       togglePlay(value) {
         this.playing = value
-  
+
         if (this.playing) {
-          this.animate()
-  
           this.videos.forEach((video, index) => {
             const vid_element = this.videoElement(index)
             vid_element.play()
           })
-  
         } else {
           this.videos.forEach((video, index) => {
             const vid_element = this.videoElement(index)
