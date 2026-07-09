@@ -11,17 +11,21 @@
     dense
     hide-details
     auto-select-first
+    :prefix="selectedFlag"
     :menu-props="{ dark: true, offsetY: true }"
     @change="onChange">
     <template #selection="{ item }">
-      <span v-if="enabledFlags" class="country-flag">{{ item.flag }}</span>
-      <span class="country-name">{{ item.name }}</span>
-      <span v-if="enabledCountryCode && item.dialCode" class="country-dial">+{{ item.dialCode }}</span>
+      <span class="country-selection">
+        <span class="country-name">{{ item.name }}</span>
+        <span v-if="enabledCountryCode && item.dialCode" class="country-dial">+{{ item.dialCode }}</span>
+      </span>
     </template>
     <template #item="{ item }">
-      <span v-if="enabledFlags" class="country-flag">{{ item.flag }}</span>
-      <span class="country-name">{{ item.name }}</span>
-      <span v-if="enabledCountryCode && item.dialCode" class="country-dial">+{{ item.dialCode }}</span>
+      <span class="country-option">
+        <span v-if="enabledFlags" class="country-flag">{{ item.flag }}</span>
+        <span class="country-name">{{ item.name }}</span>
+        <span v-if="enabledCountryCode && item.dialCode" class="country-dial">+{{ item.dialCode }}</span>
+      </span>
     </template>
   </v-autocomplete>
 </template>
@@ -95,6 +99,12 @@ export default {
       const rest = this.countries.filter((c) => !preferred.includes(c.iso2));
       return [...top, ...rest];
     },
+    selectedCountry() {
+      return this.countries.find((c) => c.iso2 === this.selectedIso2) || null;
+    },
+    selectedFlag() {
+      return this.enabledFlags && this.selectedCountry ? this.selectedCountry.flag : "";
+    },
   },
   watch: {
     defaultCountry(iso2) {
@@ -125,16 +135,39 @@ export default {
 </script>
 
 <style scoped>
+.country-dropdown ::v-deep .v-select__selections {
+  flex-wrap: nowrap;
+}
+
+.country-dropdown ::v-deep .v-text-field__prefix {
+  align-self: center;
+  line-height: 1;
+  padding-right: 8px;
+}
+
+.country-selection,
+.country-option {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  white-space: nowrap;
+}
+
 .country-flag {
   margin-right: 8px;
   font-size: 1.1rem;
   line-height: 1;
+  flex: 0 0 auto;
 }
 .country-name {
   color: hsla(0, 0%, 100%, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .country-dial {
   margin-left: 8px;
   color: hsla(0, 0%, 100%, 0.55);
+  flex: 0 0 auto;
 }
 </style>
