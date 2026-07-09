@@ -3048,6 +3048,9 @@
       isDeleteShortcut(event) {
         return event.key === 'Backspace' || event.key === 'Delete'
       },
+      isPermanentDeleteShortcut(event) {
+        return this.isDeleteShortcut(event) && (event.metaKey || event.ctrlKey)
+      },
       isTrialNavigationShortcut(event) {
         return !event.metaKey && !event.ctrlKey && !event.altKey && ['ArrowUp', 'ArrowDown'].includes(event.key)
       },
@@ -3107,7 +3110,7 @@
         }
 
         if (this.isDeleteShortcut(event)) {
-          const openedDialog = event.metaKey
+          const openedDialog = this.isPermanentDeleteShortcut(event)
             ? this.openSelectedTrialPermanentDeleteDialog()
             : this.openSelectedTrialTrashDialog()
 
