@@ -11,37 +11,28 @@
     dense
     hide-details
     auto-select-first
-    :prefix="selectedFlag"
     :menu-props="{ dark: true, offsetY: true }"
     @change="onChange">
     <template #selection="{ item }">
       <span class="country-selection">
+        <span v-if="enabledFlags" class="country-flag fi" :class="flagClass(item.iso2)"></span>
         <span class="country-name">{{ item.name }}</span>
         <span v-if="enabledCountryCode && item.dialCode" class="country-dial">+{{ item.dialCode }}</span>
       </span>
     </template>
     <template #item="{ item }">
-      <span class="country-option">
-        <span v-if="enabledFlags" class="country-flag">{{ item.flag }}</span>
-        <span class="country-name">{{ item.name }}</span>
-        <span v-if="enabledCountryCode && item.dialCode" class="country-dial">+{{ item.dialCode }}</span>
-      </span>
+      <span v-if="enabledFlags" class="country-flag fi" :class="flagClass(item.iso2)"></span>
+      <span class="country-name">{{ item.name }}</span>
+      <span v-if="enabledCountryCode && item.dialCode" class="country-dial">+{{ item.dialCode }}</span>
     </template>
   </v-autocomplete>
 </template>
 
 <script>
 import allCountries from "@/util/allCountries.js";
-
-// Convert an ISO 3166-1 alpha-2 code into a flag emoji using regional
-// indicator symbols. Returns an empty string for invalid/empty codes.
-function isoToFlag(iso2) {
-  if (!iso2 || iso2.length !== 2) return "";
-  const code = iso2.toUpperCase();
-  return String.fromCodePoint(
-    ...[...code].map((c) => 0x1f1e6 + (c.charCodeAt(0) - 65))
-  );
-}
+// Bundled SVG flags (rendered consistently on every OS, unlike emoji flags
+// which don't exist on Windows).
+import "flag-icons/css/flag-icons.min.css";
 
 export default {
   name: "CountryDropdown",
@@ -85,7 +76,6 @@ export default {
           name: c.name,
           iso2: c.iso2,
           dialCode: c.dialCode,
-          flag: isoToFlag(c.iso2),
         }));
     },
     items() {
@@ -98,12 +88,6 @@ export default {
       });
       const rest = this.countries.filter((c) => !preferred.includes(c.iso2));
       return [...top, ...rest];
-    },
-    selectedCountry() {
-      return this.countries.find((c) => c.iso2 === this.selectedIso2) || null;
-    },
-    selectedFlag() {
-      return this.enabledFlags && this.selectedCountry ? this.selectedCountry.flag : "";
     },
   },
   watch: {
@@ -127,6 +111,9 @@ export default {
       const match = this.countries.find((c) => c.iso2 === iso2);
       if (match) this.emitSelect(match);
     },
+    flagClass(iso2) {
+      return iso2 ? `fi-${iso2.toLowerCase()}` : "";
+    },
     emitSelect({ name, iso2, dialCode }) {
       this.$emit("onSelect", { name, iso2, dialCode });
     },
@@ -135,39 +122,42 @@ export default {
 </script>
 
 <style scoped>
-.country-dropdown ::v-deep .v-select__selections {
-  flex-wrap: nowrap;
-}
-
-.country-dropdown ::v-deep .v-text-field__prefix {
-  align-self: center;
-  line-height: 1;
-  padding-right: 8px;
-}
-
-.country-selection,
-.country-option {
-  display: flex;
+.country-selection {
+  display: inline-flex;
   align-items: center;
-  min-width: 0;
-  width: 100%;
+  flex-wrap: nowrap;
   white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
 }
-
 .country-flag {
   margin-right: 8px;
-  font-size: 1.1rem;
-  line-height: 1;
-  flex: 0 0 auto;
+  flex-shrink: 0;
+  width: 1.33em;
+  height: 1em;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 .country-name {
   color: hsla(0, 0%, 100%, 0.85);
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .country-dial {
   margin-left: 8px;
   color: hsla(0, 0%, 100%, 0.55);
-  flex: 0 0 auto;
+  flex-shrink: 0;
+}
+
+/* Clip the selected name at the field's edge instead of letting a long
+   country name stretch the input (and the whole card) wider. */
+.country-dropdown ::v-deep .v-select__selections {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.country-dropdown ::v-deep .v-select__selections input {
+  min-width: 0;
 }
 </style>
