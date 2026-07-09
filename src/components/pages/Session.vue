@@ -1172,6 +1172,12 @@
           const trials = this.session?.trials || []
           return trials.filter(trial => trial && trial.name !== 'calibration' && !(trial.name === 'neutral' && trial.status === 'error')).filter(t => this.show_trashed || !t.trashed)
         },
+        selectedTrialFromList() {
+          if (!this.trial?.id || !Array.isArray(this.session?.trials)) {
+            return null
+          }
+          return this.session.trials.find(trial => trial.id === this.trial.id) || null
+        },
         videoControlsDisabled() {
           return !this.trial || this.trial.name === 'neutral' || this.frames.length === 0
         },
@@ -1425,6 +1431,7 @@
       }
 
       // Add keyboard event listener
+      window.addEventListener('keydown', this.handleTrialListShortcut)
       window.addEventListener('keydown', this.handleKeyboard)
       window.addEventListener('resize', this.onResize)
       this.bindControlGestureGuards()
@@ -1442,6 +1449,7 @@
       }
 
       // Remove keyboard event listener
+      window.removeEventListener('keydown', this.handleTrialListShortcut)
       window.removeEventListener('keydown', this.handleKeyboard)
       window.removeEventListener('resize', this.onResize)
       this.unbindControlGestureGuards()
@@ -3015,14 +3023,127 @@
         }
         window.alert(`Result with tag "${tag}" not found`);
       },
+      isTypingInEditableField(event) {
+        const target = event.target
+        if (!target) return false
+        const tagName = target.tagName
+        return tagName === 'INPUT' || tagName === 'TEXTAREA' || target.isContentEditable
+      },
+      isSessionDialogOpen() {
+        return !!(
+          this.remove_dialog ||
+          this.restore_dialog ||
+          this.permanent_delete_dialog ||
+          this.trial_rename_dialog ||
+          this.session_rename_dialog ||
+          this.trial_modify_tags ||
+          this.showAnalysisDialog ||
+          this.new_session_confirm_dialog ||
+          this.new_session_same_setup_confirm_dialog ||
+          this.dialog ||
+          this.showArchiveDialog ||
+          this.showTrialMenuSheet
+        )
+      },
+      isDeleteShortcut(event) {
+        return event.key === 'Backspace' || event.key === 'Delete'
+      },
+      isTrialNavigationShortcut(event) {
+        return !event.metaKey && !event.ctrlKey && !event.altKey && ['ArrowUp', 'ArrowDown'].includes(event.key)
+      },
+      openSelectedTrialTrashDialog() {
+        const selectedTrial = this.selectedTrialFromList
+        if (!selectedTrial || selectedTrial.trashed) return false
+
+        this.trialForTrashDialog = selectedTrial
+        this.remove_dialog = true
+        return true
+      },
+      openSelectedTrialPermanentDeleteDialog() {
+        const selectedTrial = this.selectedTrialFromList
+        if (!selectedTrial) return false
+
+        this.trialForPermanentDeleteDialog = selectedTrial
+        this.permanent_delete_dialog = true
+        return true
+      },
+      navigateSelectedTrial(direction) {
+        if (this.trialLoading) return false
+
+        const trials = this.filteredTrials
+        if (trials.length === 0) return false
+
+        const selectedTrial = this.selectedTrialFromList
+        if (!selectedTrial) {
+          if (direction > 0) {
+            this.loadTrial(trials[0])
+            return true
+          }
+          return false
+        }
+
+        const currentIndex = trials.findIndex(trial => trial.id === selectedTrial.id)
+        if (currentIndex < 0) {
+          if (direction > 0) {
+            this.loadTrial(trials[0])
+            return true
+          }
+          return false
+        }
+
+        const nextIndex = currentIndex + direction
+        if (nextIndex < 0 || nextIndex >= trials.length) return true
+
+        this.loadTrial(trials[nextIndex])
+        return true
+      },
+      handleTrialListShortcut(event) {
+        if (
+          event.defaultPrevented ||
+          this.isTypingInEditableField(event) ||
+          this.isSessionDialogOpen()
+        ) {
+          return
+        }
+
+        if (this.isDeleteShortcut(event)) {
+          const openedDialog = event.metaKey
+            ? this.openSelectedTrialPermanentDeleteDialog()
+            : this.openSelectedTrialTrashDialog()
+
+          if (openedDialog) {
+            event.preventDefault()
+          }
+          return
+        }
+
+        if (this.isTrialNavigationShortcut(event)) {
+          const handled = this.navigateSelectedTrial(event.key === 'ArrowUp' ? -1 : 1)
+          if (handled) {
+            event.preventDefault()
+          }
+        }
+      },
       handleKeyboard: debounce(function(event) {
-        // Only handle keyboard events when trial is loaded and video controls are enabled
-        if (this.videoControlsDisabled) {
+        if (event.defaultPrevented) {
           return
         }
 
         // Ignore if user is typing in an input field
-        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        if (this.isTypingInEditableField(event)) {
+          return
+        }
+
+        if (this.isSessionDialogOpen() && this.isTrialNavigationShortcut(event)) {
+          return
+        }
+
+        if (this.isTrialNavigationShortcut(event)) {
+          return
+        }
+
+        // Only handle playback keyboard events when trial video controls are enabled
+        if (this.videoControlsDisabled) {
           return
         }
 
