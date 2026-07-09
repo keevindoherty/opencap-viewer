@@ -86,9 +86,6 @@
                   <v-btn class="mb-4 w-100" v-show="show_controls && !showOpenInAppButton" :disabled="recordingStopCooldownActive || lidarCooldownActive || (state === 'ready' && (busy || invalid))" @click="changeState">
                       {{ buttonCaption }}
                   </v-btn>
-                  <p v-if="lidarCooldownActive" class="white--text text-center mb-4 px-2">
-                    Applying the LiDAR change on the phone. Please wait {{ lidarCooldownRemaining }}s before recording.
-                  </p>
                   <p v-if="state === 'recording' && n_cameras_connected >= n_calibrated_cameras">
                     {{ recordingStatusText }}
                     <template v-if="recordingDisplayFramerate"> at {{ recordingDisplayFramerate }} Hz</template><template v-if="isLidarRecordingEnabled">, {{ lidarRecordingStatusText }}</template>,
